@@ -1,0 +1,62 @@
+name: publish image
+
+on:
+    push:
+        branches: [main, development]
+
+env:
+    REGISTRY: ghcr.io
+    IMAGE_NAME: ${{ github.repository }}
+    SERVICE_NAME: ${{ github.event.repository.name }}
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        permissions:
+            packages: write
+            contents: read
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Convert repo name to lowercase
+              run: echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+            - uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  push: true
+                  tags: ghcr.io/${{ env.IMAGE_NAME }}:latest
+
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Azure Login
+              uses: azure/login@v1
+              with:
+                  creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+            - name: Load deployment config
+              run: cat deploy.env >> $GITHUB_ENV
+
+            - name: Get AKS credentials
+              run: |
+                  az aks get-credentials \
+                    --resource-group ${{ env.RESOURCE_GROUP }} \
+                    --name $(az aks list --resource-group ${{ env.RESOURCE_GROUP }} --query "[0].name" -o tsv)
+
+            - name: Update deployment image
+              run: |
+                  kubectl set image deployment/${{ env.DEPLOYMENT_NAME }} \
+                    ${{ env.CONTAINER_NAME }}=ghcr.io/${{ env.IMAGE_NAME }}:latest \
+                    -n ${{ env.NAMESPACE }}
