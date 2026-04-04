@@ -1,21 +1,4 @@
-2026.03.14 00:39:20 INFO  Started: Metals version 1.6.6 in folders '/Users/mogboella/School/DISTRIBUTED_SYS/observability-service' for client Visual Studio Code 1.110.1.[0m
-2026.03.14 00:39:20 INFO  Memory monitor started[0m
-2026.03.14 00:39:20 WARN  Using H2 2.4.240 which is newer than the version Flyway has been verified with. The latest verified version of H2 is 2.3.232.[0m
-2026.03.14 00:39:20 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditController.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:20 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditController.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:29 WARN  no build target for: /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditController.java[0m
-2026.03.14 00:39:41 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditController.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:43 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditRecordResponse.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:43 WARN  no build target for: /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditRecordResponse.java[0m
-Mar 14, 2026 12:39:43 AM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
-WARNING: Unmatched cancel notification for request id 14
-2026.03.14 00:39:43 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditRecordResponse.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:43 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditRecordResponse.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:47 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/api/AuditRecordResponse.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:49 WARN  no build target for: /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/domain/AuditEventType.java[0m
-2026.03.14 00:39:49 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/domain/AuditEventType.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:49 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/domain/AuditEventType.java. Using fallback presentation compiler.[0m
-2026.03.14 00:39:49 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/domain/AuditEventType.java. Using fallback presentation compiler.[0m
+[removed committed Metals log contents containing local machine paths and IDE runtime details]
 2026.03.14 00:39:51 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/domain/AuditEventType.java. Using fallback presentation compiler.[0m
 2026.03.14 00:39:51 INFO  no build target found for /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/domain/AuditEventType.java. Using fallback presentation compiler.[0m
 2026.03.14 00:39:53 WARN  no build target for: /Users/mogboella/School/DISTRIBUTED_SYS/observability-service/src/main/java/com/gtbs/observability/audit/domain/AuditRecord.java[0m
