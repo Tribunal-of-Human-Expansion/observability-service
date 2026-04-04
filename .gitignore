@@ -4,3 +4,6 @@ target/
 .DS_Store
 .env
 !deploy.env
+
+# Local-only notes (not shared)
+LOCAL-OBSERVABILITY-GUIDE.md

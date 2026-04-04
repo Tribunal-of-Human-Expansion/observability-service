@@ -17,7 +17,7 @@ spring:
         jdbc:
           time_zone: UTC
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}}
     consumer:
       group-id: observability-service
       auto-offset-reset: earliest
@@ -25,10 +25,13 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 app:
+  audit:
+    default-region-id: ${APP_AUDIT_DEFAULT_REGION_ID:local-dev}
+    default-booking-source-service: ${APP_AUDIT_DEFAULT_BOOKING_SOURCE_SERVICE:booking-service}
   kafka:
     topics:
-      booking-lifecycle: booking-lifecycle
-      policy-events: policy-events
+      booking-lifecycle: ${KAFKA_TOPIC_BOOKING_LIFECYCLE:booking-lifecycle}
+      route-policy-updated: ${KAFKA_TOPIC_ROUTE_POLICY_UPDATED:route-policy-updated}
 
 management:
   endpoints:

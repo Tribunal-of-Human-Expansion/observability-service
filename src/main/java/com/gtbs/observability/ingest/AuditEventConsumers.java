@@ -19,10 +19,10 @@ public class AuditEventConsumers {
 
     @KafkaListener(topics = "${app.kafka.topics.booking-lifecycle}", groupId = "${spring.kafka.consumer.group-id}")
     public void consumeBookingLifecycle(String payload) {
-        auditLogService.recordBookingEvent(readValue(payload, BookingLifecycleEvent.class));
+        auditLogService.recordBookingOutboxJson(payload);
     }
 
-    @KafkaListener(topics = "${app.kafka.topics.policy-events}", groupId = "${spring.kafka.consumer.group-id}")
+    @KafkaListener(topics = "${app.kafka.topics.route-policy-updated}", groupId = "${spring.kafka.consumer.group-id}")
     public void consumePolicyChange(String payload) {
         auditLogService.recordPolicyEvent(readValue(payload, PolicyChangeEvent.class));
     }

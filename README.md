@@ -1,209 +1,175 @@
 # Observability Service
 
-This repository now contains a starter Java service for the GTBS Audit & Observability component.
+GTBS **Audit and Observability** component: consumes asynchronous events, stores an append-only audit trail in PostgreSQL, and exposes read APIs plus Actuator metrics and OpenTelemetry-compatible tracing.
 
-The goal is not to be "finished". The goal is to give you a clean, understandable baseline that supports:
+It is **not** on the booking correctness path. If this service or Kafka is slow or down, bookings must still succeed; audit catch-up can lag.
 
-- immutable audit logging
-- Kafka event ingestion
-- PostgreSQL persistence
-- health checks
-- Prometheus metrics
-- OpenTelemetry tracing hooks
+## What it does
 
-## 1. What This Service Does
+- Consumes **booking lifecycle** messages from Kafka (same JSON as `booking-service` outbox).
+- Consumes **route/policy** messages from the `route-policy-updated` topic (Terraform name in `the-infra-repo`).
+- Persists rows in `audit_records` (Flyway migration `V1__create_audit_records.sql`).
+- Exposes `GET /api/v1/audit/bookings/{bookingId}` and `GET /api/v1/audit/segments/{segmentId}`.
+- Exposes `/actuator/health`, `/actuator/prometheus`, and OTLP trace export (see `application.yml`).
 
-In your architecture, this service is responsible for:
+High-level architecture reference: [`the-infra-repo/docs/architecture.md`](../the-infra-repo/docs/architecture.md) (section 5.7).
 
-- consuming booking lifecycle events
-- consuming route or policy change events
-- storing an append-only audit trail
-- exposing read APIs for audit lookup
-- exposing metrics and traces so the platform can be monitored
+---
 
-It is not on the booking correctness path.
+## Event and topic contract
 
-That means:
+Authoritative Kafka topic **names** are created in Terraform (`the-infra-repo/infra/terraform/modules/region/main.tf`, `locals.kafka_topics`). This service defaults to the same names:
 
-- if this service is slow, bookings should still work
-- if Kafka is temporarily unavailable, bookings should still not lose correctness
-- this service is for compliance, debugging, incident review, and operations
+| Terraform / Event Hubs topic | Consumer | Producer (typical) |
+|-------------------------------|----------|--------------------|
+| `booking-lifecycle` | This service | `booking-service` (outbox publisher) |
+| `route-policy-updated` | This service | Route / traffic / policy services (when implemented) |
 
-## 2. Recommended Beginner Setup
+Override via env if needed: `KAFKA_TOPIC_BOOKING_LIFECYCLE`, `KAFKA_TOPIC_ROUTE_POLICY_UPDATED`.
 
-Use these versions locally:
+### Booking outbox JSON (from `booking-service`)
 
-- Java 21 LTS or newer
-- Maven 3.9+
-- Docker Desktop
-- IntelliJ IDEA Community or Ultimate
+The booking service writes one JSON object per message (snake_case keys), for example:
 
-Your machine already has Java installed, but Maven is not installed in this repo environment.
+- `booking_id` (UUID)
+- `user_id`
+- `state` — must match a `BookingState` / `AuditEventType` name: `PENDING`, `RESERVED`, `CONFIRMED`, `REJECTED`, `CANCELLED`, `FAILED`
+- `origin`, `destination`
+- `map_version` (may be empty string)
+- `time_window_start`, `time_window_end` (ISO-8601 strings)
 
-If you are on macOS and use Homebrew:
+`region_id`, `segment_id`, and `correlation_id` are **not** in the outbox payload today. This service sets:
 
-```bash
-brew install maven
-```
+- `regionId` → **`APP_AUDIT_DEFAULT_REGION_ID`** (required in production; default `local-dev` for laptop dev).
+- `sourceService` → **`APP_AUDIT_DEFAULT_BOOKING_SOURCE_SERVICE`** (default `booking-service`).
+- `eventTimestamp` → consume time (`Instant.now()`).
 
-Check your tools:
+Malformed JSON or unknown `state` values are **skipped** (logged); the consumer does not throw, so one bad message does not block the partition.
 
-```bash
-java -version
-mvn -version
-docker --version
-```
+### Policy / route events (`route-policy-updated`)
 
-## 3. Why Java + Spring Boot Here
+Payload maps to `PolicyChangeEvent` (camelCase JSON):
 
-For this project, Spring Boot gives you the things you need quickly:
+- `eventType` — must be a value of `AuditEventType` (e.g. `POLICY_CHANGED`, `SEGMENT_CLOSED`, `SEGMENT_REOPENED`)
+- `segmentId`, `regionId`, `sourceService`, `correlationId`, `mapVersion`, `eventTimestamp` (ISO-8601 instant)
 
-- REST endpoints
-- Kafka integration
-- database access
-- health endpoints
-- metrics and tracing support
-- simple configuration through `application.yml`
+`regionId` and `sourceService` are **required**; unknown `eventType` is skipped (logged).
 
-If you have not used Java in years, Spring Boot is the easiest way back in.
+---
 
-## 4. Project Structure
+## Configuration
 
-```text
-observability-service/
-├── docker-compose.yml
-├── otel-collector-config.yaml
-├── pom.xml
-├── prometheus.yml
-└── src
-    ├── main
-    │   ├── java/com/gtbs/observability
-    │   │   ├── ObservabilityServiceApplication.java
-    │   │   ├── audit
-    │   │   │   ├── api
-    │   │   │   ├── domain
-    │   │   │   ├── repository
-    │   │   │   └── service
-    │   │   └── ingest
-    │   └── resources
-    │       ├── application.yml
-    │       └── db/migration
-    └── test
-```
+### Core environment variables
 
-### What Each Package Means
+| Variable | Purpose |
+|----------|---------|
+| `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | PostgreSQL (use in `prod` / Azure; local defaults use `DB_*` in `application.yml`) |
+| `SPRING_KAFKA_BOOTSTRAP_SERVERS` or `KAFKA_BOOTSTRAP_SERVERS` | Kafka or Event Hubs bootstrap |
+| `APP_AUDIT_DEFAULT_REGION_ID` | Regional deployments must set this (e.g. Terraform `region_key`) |
+| `APP_AUDIT_DEFAULT_BOOKING_SOURCE_SERVICE` | Shown on audit rows from booking feed (default `booking-service`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP trace endpoint (optional) |
 
-- `audit/domain`: your database-backed core audit model
-- `audit/repository`: Spring Data access to Postgres
-- `audit/service`: business logic for storing and reading audit records
-- `audit/api`: REST controllers and response DTOs
-- `ingest`: Kafka consumers and event payload classes
+### Spring profiles
 
-This layout is intentionally simple. It is a good starting structure for a small service.
+- **Local:** default `application.yml` only; Postgres and Kafka from Docker Compose.
+- **Kubernetes / Azure:** `SPRING_PROFILES_ACTIVE=prod,azure` as in `k8s/deployment.yaml`.  
+  **`application-azure.yml`** documents Event Hubs SASL — set `SPRING_KAFKA_PROPERTIES_*` via env or secrets; never commit connection strings.
 
-## 5. How To Run Locally
+### Database naming in production
 
-Start infrastructure first:
+Terraform provisions a Postgres database named **`audit`** per region. Point `SPRING_DATASOURCE_URL` at that database (see `k8s/configmap.yaml` placeholder). Local Compose still uses database name `observability` by default.
+
+---
+
+## Run locally
+
+Prerequisites: Java 21+, Maven 3.9+, Docker.
 
 ```bash
 docker compose up -d
-```
-
-Then run the Spring Boot app:
-
-```bash
 mvn spring-boot:run
 ```
 
-Useful local URLs:
+Useful URLs:
 
-- app health: `http://localhost:8080/actuator/health`
-- Prometheus metrics: `http://localhost:8080/actuator/prometheus`
-- audit lookup: `http://localhost:8080/api/v1/audit/bookings/{bookingId}`
+- Health: `http://localhost:8080/actuator/health`
+- Metrics: `http://localhost:8080/actuator/prometheus`
+- Audit by booking: `http://localhost:8080/api/v1/audit/bookings/{bookingId}`
 - Kafka UI: `http://localhost:8081`
-- Jaeger UI: `http://localhost:16686`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
 
-Grafana default login:
+To manually emit a booking message (after `booking-service` uses topic `booking-lifecycle`), publish JSON matching the contract to topic `booking-lifecycle` and confirm rows in `audit_records`.
 
-- username: `admin`
-- password: `admin`
+---
 
-## 6. Local Infrastructure
+## Build, test, container
 
-`docker-compose.yml` starts:
+```bash
+mvn test
+mvn -DskipTests package
+docker build -t observability-service:local .
+```
 
-- PostgreSQL for audit storage
-- Kafka for event ingestion
-- Kafka UI for debugging topics
-- OpenTelemetry Collector for traces
-- Jaeger for trace visualization
-- Prometheus for metrics scraping
-- Grafana for dashboards
+---
 
-This is more than enough for a student project and closely matches your architecture document.
+## CI: GitHub Container Registry
 
-## 7. Important Concepts To Keep In Mind
+| Workflow | When | Image tags |
+|----------|------|------------|
+| `.github/workflows/publish-and-deploy.yml` | Push to `main` or `development` | `ghcr.io/<owner>/<repo>:latest` + optional AKS `kubectl set image` (uses `deploy.env`) |
+| `.github/workflows/docker-pr.yml` | Pull request to `main` or `development` | `pr-<number>` and `pr-<number>-<full-sha>` (no AKS deploy) |
 
-### Append-only audit logs
+**Trying a PR build in staging**
 
-Audit records should not be edited after creation.
+```bash
+kubectl set image deployment/observability-service \
+  observability-service=ghcr.io/<org>/observability-service:pr-42 \
+  -n <your-namespace>
+```
 
-In practice:
+Replace tag with the exact tag shown in the PR workflow run (“Packages” / job output).
 
-- insert new audit rows
-- never update old audit rows unless fixing bad test data
-- keep original payloads when possible
+---
 
-### Service boundaries
+## Kubernetes manifests
 
-This service should not own booking business logic.
+Paths mirror `journey-compatibility-service`:
 
-It should consume and observe:
+- `k8s/deployment.yaml` — Deployment + ClusterIP Service (`observability-service`), Workload Identity + CSI placeholders.
+- `k8s/configmap.yaml` — Non-secret URLs and `APP_AUDIT_DEFAULT_REGION_ID` (replace `REPLACE_*` values).
+- `k8s/keyvault/` — `SecretProviderClass` + `ServiceAccount` placeholders for DB credentials sync.
+- `k8s/local/` — Minimal local/minikube-style example.
 
-- booking events
-- policy events
-- route changes
-- operational signals
+Ensure `deploy.env` (`DEPLOYMENT_NAME`, `CONTAINER_NAME`, `NAMESPACE`) matches the Kubernetes Deployment if you use the publish workflow’s deploy job.
 
-### Observability is not just logging
+---
 
-You need three things:
+## Security
 
-- logs: what happened
-- metrics: how often and how fast
-- traces: how requests moved between services
+Treat audit APIs as **internal**. Do not expose them on a public API gateway without authentication and authorization. Metrics endpoints should be scraped only from the mesh / monitoring network.
 
-That is why this starter includes Actuator, Prometheus, and OpenTelemetry support.
+---
 
-## 8. Suggested Next Steps
+## Project layout
 
-After you get this running, build in this order:
+```text
+observability-service/
+├── .github/workflows/
+├── k8s/
+├── docker-compose.yml
+├── Dockerfile
+├── deploy.env
+├── src/main/java/com/gtbs/observability/
+│   ├── audit/          # REST, domain, repository, service
+│   └── ingest/       # Kafka consumers, payloads, booking outbox mapper
+└── src/main/resources/
+    ├── application.yml
+    ├── application-prod.yml
+    ├── application-azure.yml
+    └── db/migration/
+```
 
-1. produce fake booking and policy events into Kafka
-2. verify they are stored in `audit_records`
-3. add search endpoints for booking ID, segment ID, and region
-4. add signed or tamper-evident audit export if your coursework needs stronger compliance guarantees
-5. add integration tests with Testcontainers
+## Further improvements
 
-## 9. Notes About The Rest Of GTBS
-
-For the whole platform, I would keep the Java service structure roughly like this:
-
-- `booking-service`
-- `journey-compatibility-service`
-- `route-management-service`
-- `traffic-authority-service`
-- `audit-observability-service`
-
-For each Java service, use the same internal package pattern:
-
-- `api`
-- `application`
-- `domain`
-- `repository`
-- `config`
-- `messaging`
-
-Keeping the shape consistent across services matters more than finding the "perfect" folder layout.
+- Region-scoped query API and pagination.
+- Tamper-evident or signed audit export for compliance coursework.
+- Integration tests with Testcontainers (Postgres + Kafka) alongside current H2 + `@EmbeddedKafka` smoke test.
