@@ -2,7 +2,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: observability-config
-  namespace: default
 data:
   # JDBC URL must target the audit database created in the-infra Terraform (database name: audit)
   DB_URL: "jdbc:postgresql://REPLACE_WITH_PG_HOST:5432/audit?sslmode=require"
