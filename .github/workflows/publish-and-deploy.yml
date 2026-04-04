@@ -52,9 +52,14 @@ jobs:
 
             - name: Get AKS credentials
               run: |
+                  if [ -z "${{ env.AKS_CLUSTER_NAME }}" ]; then
+                    echo "AKS_CLUSTER_NAME is not set. Define it in deploy.env or GitHub environment variables."
+                    exit 1
+                  fi
+
                   az aks get-credentials \
                     --resource-group ${{ env.RESOURCE_GROUP }} \
-                    --name $(az aks list --resource-group ${{ env.RESOURCE_GROUP }} --query "[0].name" -o tsv)
+                    --name ${{ env.AKS_CLUSTER_NAME }}
 
             - name: Update deployment image
               run: |
