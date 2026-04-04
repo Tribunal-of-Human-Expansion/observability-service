@@ -85,6 +85,8 @@ Terraform provisions a Postgres database named **`audit`** per region. Point `SP
 
 Prerequisites: Java 21+, Maven 3.9+, Docker.
 
+`docker-compose.yml` runs **Apache Kafka in KRaft mode** with the official **`apache/kafka`** image (Bitnami tags are often unavailable on Docker Hub). Your app on the host still uses **`localhost:9092`**.
+
 ```bash
 docker compose up -d
 mvn spring-boot:run
