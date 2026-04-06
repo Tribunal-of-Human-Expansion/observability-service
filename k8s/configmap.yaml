@@ -3,7 +3,5 @@ kind: ConfigMap
 metadata:
   name: observability-config
 data:
-  # JDBC URL must target the audit database created in the-infra Terraform (database name: audit)
-  DB_URL: "jdbc:postgresql://REPLACE_WITH_PG_HOST:5432/audit?sslmode=require"
-  SPRING_KAFKA_BOOTSTRAP_SERVERS: "REPLACE_WITH_EVENT_HUBS_NAMESPACE.servicebus.windows.net:9093"
-  APP_AUDIT_DEFAULT_REGION_ID: "REPLACE_WITH_REGION_KEY"
+  DB_URL: "jdbc:postgresql://ds-gtbs.postgres.database.azure.com:5432/gtbs_audit?sslmode=require"
+  APP_AUDIT_DEFAULT_REGION_ID: "eu-west-1"

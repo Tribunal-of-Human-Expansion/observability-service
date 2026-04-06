@@ -17,7 +17,7 @@ spec:
     spec:
       serviceAccountName: observability-service
       imagePullSecrets:
-        - name: ghcr-secret
+        - name: ghcr-pull
       volumes:
         - name: keyvault-secrets
           csi:
@@ -54,8 +54,8 @@ spec:
                   key: DB_PASSWORD
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               valueFrom:
-                configMapKeyRef:
-                  name: observability-config
+                secretKeyRef:
+                  name: observability-kv-synced
                   key: SPRING_KAFKA_BOOTSTRAP_SERVERS
             - name: APP_AUDIT_DEFAULT_REGION_ID
               valueFrom:
